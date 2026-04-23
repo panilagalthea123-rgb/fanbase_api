@@ -18,20 +18,20 @@ def init_db():
     
     characters = [
         (1, "Peppa Pig", "Main Protagonist", "Amelie Bea Smith", "Pig", "Loves jumping in muddy puddles and playing with Teddy.", "🐷"),
-        (2, "George Pig", "Little Brother", "Alice May", "Pig", "Peppa's baby brother who absolutely loves Dinosaurs! 'Dine-saw!'", "🦖"),
-        (3, "Mummy Pig", "Mother", "Morwenna Banks", "Pig", "Works from home on her computer and is very sensible.", "💻"),
-        (4, "Daddy Pig", "Father", "Richard Ridings", "Pig", "An expert at reading maps and jumping in puddles.", "👓"),
+        (2, "George Pig", "Little Brother", "Alice May", "Pig", "Peppa's baby brother who absolutely loves Dinosaurs! 'Dine-saw!'", "🐷"),
+        (3, "Mummy Pig", "Mother", "Morwenna Banks", "Pig", "Works from home on her computer and is very sensible.", "🐷"),
+        (4, "Daddy Pig", "Father", "Richard Ridings", "Pig", "An expert at reading maps and jumping in puddles.", "🐷"),
         (5, "Suzy Sheep", "Best Friend", "Libby Shaw", "Sheep", "Peppa's best friend who likes to dress up as a nurse.", "🐑"),
-        (6, "Rebecca Rabbit", "Friend", "Alice May", "Rabbit", "She lives in a hill and really, really likes carrots.", "🥕"),
+        (6, "Rebecca Rabbit", "Friend", "Alice May", "Rabbit", "She lives in a hill and really, really likes carrots.", "🐰"),
         (7, "Danny Dog", "Friend", "Joshua Sasse", "Dog", "Likes helping his Grandad Dog at the garage.", "🐶"),
-        (8, "Pedro Pony", "Friend", "Stanley Nickless", "Pony", "A bit shy and clumsy, but he loves being a Cowboy.", "🤠"),
+        (8, "Pedro Pony", "Friend", "Stanley Nickless", "Pony", "A bit shy and clumsy, but he loves being a Cowboy.", "🐴"),
         (9, "Zoe Zebra", "Friend", "Sian Taylor", "Zebra", "The postman's daughter who helps deliver the mail.", "🦓"),
         (10, "Candy Cat", "Friend", "Daisy Humphrey", "Cat", "Very good at tigers' prowling and making a 'Meow' sound.", "🐱"),
         (11, "Emily Elephant", "Friend", "Starlight Huang", "Elephant", "She has a very loud trumpet and is quite shy.", "🐘"),
         (12, "Gerald Giraffe", "Friend", "Leo Templer", "Giraffe", "The tallest child in the group, which helps him see far away.", "🦒"),
-        (13, "Grandpa Pig", "Grandfather", "David Graham", "Pig", "A great gardener who loves his miniature train, Gertrude.", "🚂"),
-        (14, "Granny Pig", "Grandmother", "Frances White", "Pig", "She grows the best vegetables in her garden.", "👵"),
-        (15, "Madame Gazelle", "Teacher", "Gigglebiz", "Gazelle", "The teacher at the playgroup who once played in a rock band!", "🎸")
+        (13, "Grandpa Pig", "Grandfather", "David Graham", "Pig", "A great gardener who loves his miniature train, Gertrude.", "🐷"),
+        (14, "Granny Pig", "Grandmother", "Frances White", "Pig", "She grows the best vegetables in her garden.", "🐷"),
+        (15, "Madame Gazelle", "Teacher", "Gigglebiz", "Gazelle", "The teacher at the playgroup who once played in a rock band!", "🦌")
     ]
     cursor.executemany("INSERT INTO characters VALUES (?,?,?,?,?,?,?)", characters)
     conn.commit()
