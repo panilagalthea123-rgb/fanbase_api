@@ -1,3 +1,5 @@
+import os
+import sqlite3
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -6,52 +8,57 @@ app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
 
-characters_db = [
-    {
-        "id": 1, 
-        "name": "Peppa Pig", 
-        "actor": "Lily Snowden-Fine", 
-        "description": "A cheeky little piggy who loves playing games, dressing up, and jumping in muddy puddles.",
-        "image": "https://upload.wikimedia.org/wikipedia/en/3/3b/Peppa_Pig_character.png"
-    },
-    {
-        "id": 2, 
-        "name": "George Pig", 
-        "actor": "Oliver May", 
-        "description": "Peppa's little brother. He loves dinosaurs and carries his 'Mr. Dinosaur' everywhere he goes.",
-        "image": "https://static.wikia.nocookie.net/peppapig/images/0/02/George_Pig.png"
-    },
-    {
-        "id": 3, 
-        "name": "Mummy Pig", 
-        "actor": "Morwenna Banks", 
-        "description": "She works from home on her computer and is very good at jumping in muddy puddles too.",
-        "image": "https://static.wikia.nocookie.net/peppapig/images/5/52/Mummy_Pig.png"
-    },
-    {
-        "id": 4, 
-        "name": "Daddy Pig", 
-        "actor": "Richard Ridings", 
-        "description": "He is very jolly, stays cheerful even when things go wrong, and is a bit of an expert at everything.",
-        "image": "https://static.wikia.nocookie.net/peppapig/images/3/31/Daddy_Pig.png"
-    }
-]
+DB_PATH = "fanbase.db"
+
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''CREATE TABLE IF NOT EXISTS characters 
+                   (id INTEGER PRIMARY KEY, name TEXT, actor TEXT, description TEXT, image TEXT)''')
+    
+ 
+    cursor.execute("SELECT COUNT(*) FROM characters")
+    if cursor.fetchone()[0] == 0:
+        characters = [
+            (1, 'Peppa Pig', 'Lily Snowden-Fine', 'A cheeky little piggy who loves jumping in muddy puddles.', 'https://upload.wikimedia.org/wikipedia/en/3/3b/Peppa_Pig_character.png'),
+            (2, 'George Pig', 'Oliver May', 'Peppa\'s little brother who loves his toy Dinosaur.', 'https://static.wikia.nocookie.net/peppapig/images/0/02/George_Pig.png'),
+            (3, 'Mummy Pig', 'Morwenna Banks', 'She works from home and is very wise.', 'https://static.wikia.nocookie.net/peppapig/images/5/52/Mummy_Pig.png'),
+            (4, 'Daddy Pig', 'Richard Ridings', 'A bit of an expert at everything, even when he isn\'t.', 'https://static.wikia.nocookie.net/peppapig/images/3/31/Daddy_Pig.png')
+        ]
+        cursor.executemany("INSERT INTO characters VALUES (?,?,?,?,?)", characters)
+        conn.commit()
+    conn.close()
+
+
+init_db()
+
 
 
 @app.get("/", response_class=HTMLResponse)
-async def home_ui(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request, "characters": characters_db})
-
+async def home(request: Request):
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM characters")
+    chars = cursor.fetchall()
+    conn.close()
+    return templates.TemplateResponse("index.html", {"request": request, "characters": chars})
 
 @app.get("/api/characters")
-def get_all_characters():
-    return characters_db
-
-@app.get("/api/characters/{char_id}")
-def get_character(char_id: int):
-    character = next((c for c in characters_db if c["id"] == char_id), None)
-    return character if character else {"error": "Character not found"}
+def get_all():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM characters")
+    data = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return data
 
 @app.get("/api/actors")
 def get_actors():
-    return [{"character": c["name"], "actor": c["actor"]} for c in characters_db]
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT name, actor FROM characters")
+    data = [{"character": row[0], "actor": row[1]} for row in cursor.fetchall()]
+    conn.close()
+    return data
