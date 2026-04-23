@@ -1,109 +1,74 @@
-import os
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy import Column, Integer, String, create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
-
-# --- 1. SAFETY CONFIGURATION ---
-# This ensures Render uses a persistent path for the database
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'peppa_v4.db')}"
-
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-# --- 2. DATA MODEL ---
-class Character(Base):
-    __tablename__ = "characters"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String)
-    actor = Column(String)
-    description = Column(String)
-    image_url = Column(String)
-
-# Create the table if it doesn't exist
-Base.metadata.create_all(bind=engine)
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+import sqlite3
 
 app = FastAPI()
 
-# --- 3. DATABASE SEEDING (Auto-fill) ---
-def seed_db():
-    db = SessionLocal()
-    if db.query(Character).count() == 0:
-        data = [
-            {"name": "Peppa Pig", "actor": "Harley Bird", "description": "A lovable, cheeky little piggy.", "image_url": "PASTE_LINK_HERE"},
-            {"name": "George Pig", "actor": "Alice May", "description": "Loves dinosaurs! RAWWR!", "image_url": "PASTE_LINK_HERE"},
-            {"name": "Mummy Pig", "actor": "Morwenna Banks", "description": "Very wise and kind.", "image_url": "PASTE_LINK_HERE"},
-            {"name": "Daddy Pig", "actor": "Richard Ridings", "description": "An expert at reading maps.", "image_url": "PASTE_LINK_HERE"},
-            {"name": "Suzy Sheep", "actor": "Meg Hall", "description": "Peppa's best friend.", "image_url": "PASTE_LINK_HERE"}
-        ]
-        for item in data:
-            db.add(Character(**item))
-        db.commit()
-    db.close()
+# Mount static files and templates
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
 
-seed_db()
+# Initialize SQLite Database
+def init_db():
+    conn = sqlite3.connect("fanbase.db")
+    cursor = conn.cursor()
+    cursor.execute('''CREATE TABLE IF NOT EXISTS characters 
+                      (id INTEGER PRIMARY KEY, name TEXT, role TEXT, actor TEXT, desc TEXT, img TEXT)''')
+    
+    # 15 Characters Data
+    chars = [
+        ( "Peppa Pig", "Main Character", "Amelie Bea Smith", "A lovable, cheeky little piggy who lives with her family.", ""peppa.png""),
+        ( "George Pig", "Little Brother", "Alice May", "Peppa's little brother who loves dinosaurs.", "George_s9.png"),
+        ( "Mummy Pig", "Mother", "Morwenna Banks", "She works from home on her computer.", "Mummy_Pig.png"),
+        ( "Daddy Pig", "Father", "Richard Ridings", "He is very jolly but a bit clumsy.", "Daddy_Pig.png"),
+        ( "Suzy Sheep", "Best Friend", "Bethany Bewley", "Peppa's best friend who likes to dress up as a nurse.", "SuzySheep.png"),
+        ( "Rebecca Rabbit", "Friend", "Alice May", "She loves carrots more than anything.", "https://static.wikia.nocookie.net/peppapig/images/3/3a/Rebecca_Rabbit.png"),
+        ( "Candy Cat", "Friend", "Daisy Rudd", "A kind cat who is very good at skipping.", "Candy_Cat.png"),
+        ( "Danny Dog", "Friend", "George Woolford", "He wants to be a sailor like his dad.", "Danny_Dog.png"),
+        ( "Pedro Pony", "Friend", "Stanley Nickless", "He is a bit sleepy and often loses his glasses.", "Pedro_Pony.png"),
+        ( "Zoe Zebra", "Friend", "Sian Taylor", "The postman's daughter who helps deliver letters.", "zoe.png"),
+        ( "Emily Elephant", "Friend", "Julia Moss", "She is a bit shy but has a very loud trumpet.", "emily.png"),
+        ( "Grandpa Pig", "Grandfather", "David Graham", "He loves gardening and sailing his boat.", "Grandpapig1.png"),
+        ( "Granny Pig", "Grandmother", "Frances White", "She makes the best chocolate cakes.", "granny.png"),
+        ( "Madame Gazelle", "Teacher", "Morwenna Banks", "She taught all the parents when they were young.", "madamn.png"),
+        ( "Mr. Bull", "Worker", "David Rintoul", "He loves digging up roads and building things.", "mrbull.png")
+    ]
+    cursor.executemany("INSERT OR REPLACE INTO characters VALUES (?,?,?,?,?,?)", chars)
+    conn.commit()
+    conn.close()
 
-# --- 4. API LOGIC ---
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+init_db()
+
+# --- API ENDPOINTS ---
+
+@app.get("/", response_class=HTMLResponse)
+async def read_ui(request: Request):
+    conn = sqlite3.connect("fanbase.db")
+    conn.row_factory = sqlite3.Row
+    chars = conn.execute("SELECT * FROM characters").fetchall()
+    conn.close()
+    return templates.TemplateResponse("index.html", {"request": request, "characters": chars})
 
 @app.get("/api/characters")
-def get_all(db: Session = Depends(get_db)):
-    return db.query(Character).all()
+def get_all():
+    conn = sqlite3.connect("fanbase.db")
+    cursor = conn.cursor()
+    data = cursor.execute("SELECT * FROM characters").fetchall()
+    conn.close()
+    return {"characters": data}
 
-# --- 5. INTERACTIVE UI ---
-@app.get("/", response_class=HTMLResponse)
-async def home_ui(request: Request, db: Session = Depends(get_db)):
-    chars = db.query(Character).all()
-    
-    char_cards = ""
-    for c in chars:
-        # Safety: Show a placeholder icon if the link is empty
-        img_src = c.image_url if "http" in c.image_url else "https://cdn-icons-png.flaticon.com/512/2632/2632839.png"
-        
-        char_cards += f"""
-        <div class="col-md-4 mb-4">
-            <div class="card h-100 shadow-sm border-0" style="border-radius: 20px;">
-                <div style="background: white; border-radius: 20px 20px 0 0; padding: 15px; text-align: center;">
-                    <img src="{img_src}" style="height: 150px; object-fit: contain;" alt="{c.name}">
-                </div>
-                <div class="card-body text-center">
-                    <h5 class="fw-bold" style="color: #d81b60;">{c.name}</h5>
-                    <p class="small text-muted mb-1">Actor: {c.actor}</p>
-                    <p class="card-text">{c.description}</p>
-                </div>
-            </div>
-        </div>
-        """
+@app.get("/api/characters/{char_id}")
+def get_one(char_id: int):
+    conn = sqlite3.connect("fanbase.db")
+    char = conn.execute("SELECT * FROM characters WHERE id = ?", (char_id,)).fetchone()
+    conn.close()
+    return char
 
-    return f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Peppa Pig Fanbase</title>
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-        <style>
-            body {{ background: #fce4ec; min-height: 100vh; }}
-            .hero {{ background: #f06292; color: white; padding: 60px 0; text-align: center; margin-bottom: 40px; }}
-        </style>
-    </head>
-    <body>
-        <div class="hero">
-            <h1 class="display-4 fw-bold">🐷 Peppa Pig Fanbase</h1>
-            <p class="lead">Interactive Character Database</p>
-        </div>
-        <div class="container">
-            <div class="row">{char_cards}</div>
-        </div>
-    </body>
-    </html>
-    """
+@app.get("/api/actors")
+def get_actors():
+    conn = sqlite3.connect("fanbase.db")
+    actors = conn.execute("SELECT name, actor FROM characters").fetchall()
+    conn.close()
+    return {"actors": actors}
