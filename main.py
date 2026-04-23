@@ -6,69 +6,107 @@ import sqlite3
 
 app = FastAPI()
 
-# Mount static files and templates
+# Mount static and templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# Initialize SQLite Database
+# ---------- DATABASE ----------
 def init_db():
     conn = sqlite3.connect("fanbase.db")
     cursor = conn.cursor()
-    cursor.execute('''CREATE TABLE IF NOT EXISTS characters 
-                      (id INTEGER PRIMARY KEY, name TEXT, role TEXT, actor TEXT, desc TEXT, img TEXT)''')
-    
-    # 15 Characters Data
-    chars = [
-        ( "Peppa Pig", "Main Character", "Amelie Bea Smith", "A lovable, cheeky little piggy who lives with her family.", "peppa.png"),
-        ( "George Pig", "Little Brother", "Alice May", "Peppa's little brother who loves dinosaurs.", "George_s9.png"),
-        ( "Mummy Pig", "Mother", "Morwenna Banks", "She works from home on her computer.", "Mummy_Pig.png"),
-        ( "Daddy Pig", "Father", "Richard Ridings", "He is very jolly but a bit clumsy.", "Daddy_Pig.png"),
-        ( "Suzy Sheep", "Best Friend", "Bethany Bewley", "Peppa's best friend who likes to dress up as a nurse.", "SuzySheep.png"),
-        ( "Rebecca Rabbit", "Friend", "Alice May", "She loves carrots more than anything.", "https://static.wikia.nocookie.net/peppapig/images/3/3a/Rebecca_Rabbit.png"),
-        ( "Candy Cat", "Friend", "Daisy Rudd", "A kind cat who is very good at skipping.", "Candy_Cat.png"),
-        ( "Danny Dog", "Friend", "George Woolford", "He wants to be a sailor like his dad.", "Danny_Dog.png"),
-        ( "Pedro Pony", "Friend", "Stanley Nickless", "He is a bit sleepy and often loses his glasses.", "Pedro_Pony.png"),
-        ( "Zoe Zebra", "Friend", "Sian Taylor", "The postman's daughter who helps deliver letters.", "zoe.png"),
-        ( "Emily Elephant", "Friend", "Julia Moss", "She is a bit shy but has a very loud trumpet.", "emily.png"),
-        ( "Grandpa Pig", "Grandfather", "David Graham", "He loves gardening and sailing his boat.", "Grandpapig1.png"),
-        ( "Granny Pig", "Grandmother", "Frances White", "She makes the best chocolate cakes.", "granny.png"),
-        ( "Madame Gazelle", "Teacher", "Morwenna Banks", "She taught all the parents when they were young.", "madamn.png"),
-        ( "Mr. Bull", "Worker", "David Rintoul", "He loves digging up roads and building things.", "mrbull.png")
-    ]
-    cursor.executemany("INSERT OR REPLACE INTO characters VALUES (?,?,?,?,?,?)", chars)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS characters (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        role TEXT,
+        actor TEXT,
+        description TEXT,
+        image TEXT
+    )
+    """)
+
+    # Check if already has data
+    cursor.execute("SELECT COUNT(*) FROM characters")
+    if cursor.fetchone()[0] == 0:
+
+        chars = [
+            ("Peppa Pig","Main Character","Amelie Bea Smith","A cheerful pig who loves adventures.","https://upload.wikimedia.org/wikipedia/en/8/83/Peppa_Pig.png"),
+            ("George Pig","Brother","Alice May","Peppa's little brother who loves dinosaurs.","https://upload.wikimedia.org/wikipedia/en/6/6b/George_Pig.png"),
+            ("Mummy Pig","Mother","Morwenna Banks","Works from home and is very caring.","https://upload.wikimedia.org/wikipedia/en/5/55/Mummy_Pig.png"),
+            ("Daddy Pig","Father","Richard Ridings","Funny and a bit clumsy.","https://upload.wikimedia.org/wikipedia/en/8/8b/Daddy_Pig.png"),
+            ("Suzy Sheep","Best Friend","Bethany Bewley","Peppa’s best friend.","https://upload.wikimedia.org/wikipedia/en/3/3a/Suzy_Sheep.png"),
+            ("Rebecca Rabbit","Friend","Alice May","Loves carrots.","https://upload.wikimedia.org/wikipedia/en/3/3a/Rebecca_Rabbit.png"),
+            ("Danny Dog","Friend","George Woolford","Wants to be a sailor.","https://upload.wikimedia.org/wikipedia/en/5/5c/Danny_Dog.png"),
+            ("Pedro Pony","Friend","Stanley Nickless","Often sleepy and forgetful.","https://upload.wikimedia.org/wikipedia/en/0/0c/Pedro_Pony.png"),
+            ("Zoe Zebra","Friend","Sian Taylor","Helpful and kind.","https://upload.wikimedia.org/wikipedia/en/2/2c/Zoe_Zebra.png"),
+            ("Emily Elephant","Friend","Julia Moss","Shy but loud trumpet sound.","https://upload.wikimedia.org/wikipedia/en/0/0b/Emily_Elephant.png"),
+            ("Candy Cat","Friend","Daisy Rudd","Loves skipping.","https://upload.wikimedia.org/wikipedia/en/6/6c/Candy_Cat.png"),
+            ("Grandpa Pig","Grandfather","David Graham","Loves gardening.","https://upload.wikimedia.org/wikipedia/en/0/0d/Grandpa_Pig.png"),
+            ("Granny Pig","Grandmother","Frances White","Makes cakes.","https://upload.wikimedia.org/wikipedia/en/4/4d/Granny_Pig.png"),
+            ("Madame Gazelle","Teacher","Morwenna Banks","Teaches the children.","https://upload.wikimedia.org/wikipedia/en/3/3f/Madame_Gazelle.png"),
+            ("Mr Bull","Worker","David Rintoul","Loves digging roads.","https://upload.wikimedia.org/wikipedia/en/2/2d/Mr_Bull.png")
+        ]
+
+        cursor.executemany("""
+        INSERT INTO characters (name, role, actor, description, image)
+        VALUES (?, ?, ?, ?, ?)
+        """, chars)
+
     conn.commit()
     conn.close()
 
 init_db()
 
-# --- API ENDPOINTS ---
-
+# ---------- UI ----------
 @app.get("/", response_class=HTMLResponse)
-async def read_ui(request: Request):
+async def home(request: Request):
     conn = sqlite3.connect("fanbase.db")
     conn.row_factory = sqlite3.Row
-    chars = conn.execute("SELECT * FROM characters").fetchall()
+    data = conn.execute("SELECT * FROM characters").fetchall()
     conn.close()
-    return templates.TemplateResponse("index.html", {"request": request, "characters": chars})
+    return templates.TemplateResponse("index.html", {"request": request, "characters": data})
 
+# ---------- API ----------
 @app.get("/api/characters")
 def get_all():
     conn = sqlite3.connect("fanbase.db")
-    cursor = conn.cursor()
-    data = cursor.execute("SELECT * FROM characters").fetchall()
+    data = conn.execute("SELECT * FROM characters").fetchall()
     conn.close()
-    return {"characters": data}
 
-@app.get("/api/characters/{char_id}")
-def get_one(char_id: int):
+    return [
+        {
+            "id": row[0],
+            "name": row[1],
+            "role": row[2],
+            "actor": row[3],
+            "description": row[4],
+            "image": row[5]
+        }
+        for row in data
+    ]
+
+@app.get("/api/characters/{id}")
+def get_one(id: int):
     conn = sqlite3.connect("fanbase.db")
-    char = conn.execute("SELECT * FROM characters WHERE id = ?", (char_id,)).fetchone()
+    row = conn.execute("SELECT * FROM characters WHERE id=?", (id,)).fetchone()
     conn.close()
-    return char
+
+    if row:
+        return {
+            "id": row[0],
+            "name": row[1],
+            "role": row[2],
+            "actor": row[3],
+            "description": row[4],
+            "image": row[5]
+        }
+    return {"error": "Not found"}
 
 @app.get("/api/actors")
 def get_actors():
     conn = sqlite3.connect("fanbase.db")
-    actors = conn.execute("SELECT name, actor FROM characters").fetchall()
+    data = conn.execute("SELECT name, actor FROM characters").fetchall()
     conn.close()
-    return {"actors": actors}
+
+    return [{"character": r[0], "actor": r[1]} for r in data]
