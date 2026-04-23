@@ -1,76 +1,88 @@
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import create_engine, Column, Integer, String
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from fastapi import Request
+import sqlite3
 
-# 1. Database Setup
-DATABASE_URL = "sqlite:///./peppa.db"
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-# 2. Character Model
-class Character(Base):
-    __tablename__ = "characters"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String)
-    actor = Column(String)
-    species = Column(String)
-
-Base.metadata.create_all(bind=engine)
-
-# 3. App and UI Setup
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
-# Seed Data (Adds 15 characters if DB is empty)
-def seed_db():
-    db = SessionLocal()
-    if db.query(Character).count() == 0:
-        pigs = [
-            {"name": "Peppa Pig", "actor": "Amelie Bea Smith", "species": "Pig"},
-            {"name": "George Pig", "actor": "Vincent van Hulzen", "species": "Pig"},
-            {"name": "Mummy Pig", "actor": "Morwenna Banks", "species": "Pig"},
-            {"name": "Daddy Pig", "actor": "Richard Ridings", "species": "Pig"},
-            {"name": "Suzy Sheep", "actor": "Ava Lovell", "species": "Sheep"},
-            {"name": "Rebecca Rabbit", "actor": "Alice May", "species": "Rabbit"},
-            {"name": "Danny Dog", "actor": "George Woolford", "species": "Dog"},
-            {"name": "Pedro Pony", "actor": "Harrison Oldroyd", "species": "Pony"},
-            {"name": "Candy Cat", "actor": "Madison Turner", "species": "Cat"},
-            {"name": "Zoe Zebra", "actor": "Saffron Prior", "species": "Zebra"},
-            {"name": "Emily Elephant", "actor": "Starlight Huang", "species": "Elephant"},
-            {"name": "Madame Gazelle", "actor": "Morwenna Banks", "species": "Gazelle"},
-            {"name": "Mr. Bull", "actor": "David Rintoul", "species": "Bull"},
-            {"name": "Grandpa Pig", "actor": "David Graham", "species": "Pig"},
-            {"name": "Granny Pig", "actor": "Frances White", "species": "Pig"},
-        ]
-        for p in pigs:
-            db.add(Character(**p))
-        db.commit()
-    db.close()
+# Connect DB
+def get_db():
+    conn = sqlite3.connect("fanbase.db")
+    conn.row_factory = sqlite3.Row
+    return conn
 
-seed_db()
+# Create table + insert data
+def init_db():
+    conn = get_db()
+    cursor = conn.cursor()
 
-# 4. API Routes
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS characters (
+        id INTEGER PRIMARY KEY,
+        name TEXT,
+        role TEXT,
+        actor TEXT
+    )
+    """)
+
+    cursor.execute("DELETE FROM characters")
+
+    data = [
+        ("Peppa Pig", "Main Character", "Harley Bird"),
+        ("George Pig", "Peppa's Brother", "Oliver May"),
+        ("Mummy Pig", "Mother", "Morwenna Banks"),
+        ("Daddy Pig", "Father", "Richard Ridings"),
+        ("Suzy Sheep", "Best Friend", "Isabella Acres"),
+        ("Rebecca Rabbit", "Friend", "Alice May"),
+        ("Pedro Pony", "Friend", "Harry Guest"),
+        ("Danny Dog", "Friend", "Jay Ruckley"),
+        ("Candy Cat", "Friend", "Madison Turner"),
+        ("Emily Elephant", "Friend", "Chloe Dolandis"),
+        ("Zoe Zebra", "Friend", "Sian Taylor"),
+        ("Freddy Fox", "Friend", "Jamie Oram"),
+        ("Madame Gazelle", "Teacher", "Morwenna Banks"),
+        ("Grandpa Pig", "Grandfather", "David Graham"),
+        ("Granny Pig", "Grandmother", "Frances White")
+    ]
+
+    cursor.executemany("INSERT INTO characters (name, role, actor) VALUES (?, ?, ?)", data)
+
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# ROUTES
+
 @app.get("/", response_class=HTMLResponse)
-async def read_ui(request: Request):
-    db = SessionLocal()
-    chars = db.query(Character).all()
-    return templates.TemplateResponse("index.html", {"request": request, "characters": chars})
+def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
-@app.get("/api/characters")
-def get_all_characters():
-    db = SessionLocal()
-    return db.query(Character).all()
+@app.get("/characters")
+def get_characters():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM characters")
+    result = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return result
 
-@app.get("/api/characters/{char_id}")
+@app.get("/characters/{char_id}")
 def get_character(char_id: int):
-    db = SessionLocal()
-    return db.query(Character).filter(Character.id == char_id).first()
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM characters WHERE id=?", (char_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else {"error": "Character not found"}
 
-@app.get("/api/actors")
+@app.get("/actors")
 def get_actors():
-    db = SessionLocal()
-    return [{"character": c.name, "actor": c.actor} for c in db.query(Character).all()]
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT name, actor FROM characters")
+    result = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return result
