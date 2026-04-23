@@ -1,69 +1,36 @@
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import create_engine, Column, Integer, String
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
-
-
-SQLALCHEMY_DATABASE_URL = "sqlite:///./database.db"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-class Character(Base):
-    __tablename__ = "characters"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String)
-    role = Column(String)
-    actor = Column(String)
-
-Base.metadata.create_all(bind=engine)
-
 
 app = FastAPI()
+
+
+characters = [
+    {"id": 1, "name": "Peppa Pig", "actor": "Lily Snowden-Fine", "description": "A lovable, cheeky little piggy who lives with her little brother George, Mummy Pig and Daddy Pig.", "image": "https://upload.wikimedia.org/wikipedia/en/3/3b/Peppa_Pig_character.png"},
+    {"id": 2, "name": "George Pig", "actor": "Oliver May", "description": "Peppa's little brother. He loves dinosaurs and carries his 'Mr. Dinosaur' everywhere.", "image": "https://official-peppa-pig.fandom.com/wiki/George_Pig?file=George_Pig.png"},
+    {"id": 3, "name": "Mummy Pig", "actor": "Morwenna Banks", "description": "She works from home on her computer and is very wise.", "image": "https://static.wikia.nocookie.net/peppapig/images/5/52/Mummy_Pig.png"},
+    {"id": 4, "name": "Daddy Pig", "actor": "Richard Ridings", "description": "He is quite jolly and stays cheerful even when his 'expertise' goes slightly wrong.", "image": "https://static.wikia.nocookie.net/peppapig/images/3/31/Daddy_Pig.png"},
+]
+
 templates = Jinja2Templates(directory="templates")
 
 
-def seed_db():
-    db = SessionLocal()
-    if db.query(Character).count() == 0:
-        chars = [
-            Character(name="Dom Cobb", role="The Extractor", actor="Leonardo DiCaprio"),
-            Character(name="Arthur", role="The Point Man", actor="Joseph Gordon-Levitt"),
-            Character(name="Ariadne", role="The Architect", actor="Elliot Page"),
-            Character(name="Eames", role="The Forger", actor="Tom Hardy"),
-            Character(name="Robert Fischer", role="The Mark", actor="Cillian Murphy"),
-            Character(name="Mal Cobb", role="The Shade", actor="Marion Cotillard"),
-            Character(name="Saito", role="The Tourist", actor="Ken Watanabe"),
-            Character(name="Yusuf", role="The Chemist", actor="Dileep Rao"),
-        ]
-        db.add_all(chars)
-        db.commit()
-    db.close()
-
-seed_db()
-
-
-def get_db():
-    db = SessionLocal()
-    try: yield db
-    finally: db.close()
-
-
 @app.get("/", response_class=HTMLResponse)
-async def home(request: Request, db: Session = Depends(get_db)):
-    characters = db.query(Character).all()
+async def read_item(request: Request):
     return templates.TemplateResponse("index.html", {"request": request, "characters": characters})
 
+
 @app.get("/api/characters")
-def get_all_characters(db: Session = Depends(get_db)):
-    return db.query(Character).all()
+def get_all():
+    return characters
+
 
 @app.get("/api/characters/{char_id}")
-def get_character(char_id: int, db: Session = Depends(get_db)):
-    return db.query(Character).filter(Character.id == char_id).first()
+def get_one(char_id: int):
+    return next((c for c in characters if c["id"] == char_id), {"error": "Not found"})
+
 
 @app.get("/api/actors")
-def get_actors(db: Session = Depends(get_db)):
-    return [{"character": c.name, "actor": c.actor} for c in db.query(Character).all()]
+def get_actors():
+    return [{"character": c["name"], "actor": c["actor"]} for c in characters]
