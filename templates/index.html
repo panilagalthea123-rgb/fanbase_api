@@ -6,31 +6,18 @@
 </head>
 <body>
 
-<h1>🐷 Peppa Pig Fanbase</h1>
+<h1>🐷 Peppa Pig Fanbase API</h1>
 
-<input type="text" id="search" placeholder="Search character...">
-
-<div id="container">
-{% for char in characters %}
+<div class="grid">
+    {% for c in characters %}
     <div class="card">
-        <img src="{{ char['image'] }}">
-        <h2>{{ char['name'] }}</h2>
-        <p><b>{{ char['role'] }}</b></p>
-        <p>{{ char['description'] }}</p>
-        <small>🎭 {{ char['actor'] }}</small>
+        <img src="{{ c.image }}">
+        <h2>{{ c.name }}</h2>
+        <p>{{ c.desc }}</p>
+        <small>🎤 {{ c.actor }}</small>
     </div>
-{% endfor %}
+    {% endfor %}
 </div>
-
-<script>
-const search = document.getElementById("search");
-search.addEventListener("keyup", function() {
-    const value = this.value.toLowerCase();
-    document.querySelectorAll(".card").forEach(card => {
-        card.style.display = card.innerText.toLowerCase().includes(value) ? "block" : "none";
-    });
-});
-</script>
 
 </body>
 </html>
