@@ -1,53 +1,76 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
+from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, Session
 
+# 1. Database Setup
+DATABASE_URL = "sqlite:///./peppa.db"
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+# 2. Character Model
+class Character(Base):
+    __tablename__ = "characters"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String)
+    actor = Column(String)
+    species = Column(String)
+
+Base.metadata.create_all(bind=engine)
+
+# 3. App and UI Setup
 app = FastAPI()
-
 templates = Jinja2Templates(directory="templates")
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# 🐷 Fake database (15 characters)
-characters = [
-    {"id": 1, "name": "Peppa Pig", "desc": "Main character", "image": "https://i.imgur.com/peppa.png", "actor": "Amelie Bea Smith"},
-    {"id": 2, "name": "George Pig", "desc": "Peppa's brother", "image": "https://i.imgur.com/george.png", "actor": "Oliver May"},
-    {"id": 3, "name": "Daddy Pig", "desc": "Funny dad", "image": "https://i.imgur.com/daddy.png", "actor": "Richard Ridings"},
-    {"id": 4, "name": "Mummy Pig", "desc": "Smart mom", "image": "https://i.imgur.com/mummy.png", "actor": "Morwenna Banks"},
-    {"id": 5, "name": "Suzy Sheep", "desc": "Best friend", "image": "https://i.imgur.com/suzy.png", "actor": "Harley Bird"},
-    {"id": 6, "name": "Rebecca Rabbit", "desc": "Kind friend", "image": "https://i.imgur.com/rabbit.png", "actor": "Alice May"},
-    {"id": 7, "name": "Pedro Pony", "desc": "Sleepy friend", "image": "https://i.imgur.com/pony.png", "actor": "David Rintoul"},
-    {"id": 8, "name": "Danny Dog", "desc": "Energetic", "image": "https://i.imgur.com/dog.png", "actor": "Jake Harris"},
-    {"id": 9, "name": "Emily Elephant", "desc": "Shy friend", "image": "https://i.imgur.com/elephant.png", "actor": "Unknown"},
-    {"id": 10, "name": "Zoe Zebra", "desc": "Friendly", "image": "https://i.imgur.com/zebra.png", "actor": "Unknown"},
-    {"id": 11, "name": "Candy Cat", "desc": "Playful", "image": "https://i.imgur.com/cat.png", "actor": "Unknown"},
-    {"id": 12, "name": "Gerald Giraffe", "desc": "Tall friend", "image": "https://i.imgur.com/giraffe.png", "actor": "Unknown"},
-    {"id": 13, "name": "Freddy Fox", "desc": "Clever fox", "image": "https://i.imgur.com/fox.png", "actor": "Unknown"},
-    {"id": 14, "name": "Madame Gazelle", "desc": "Teacher", "image": "https://i.imgur.com/gazelle.png", "actor": "Morwenna Banks"},
-    {"id": 15, "name": "Grandpa Pig", "desc": "Old but fun", "image": "https://i.imgur.com/grandpa.png", "actor": "David Graham"},
-]
+# Seed Data (Adds 15 characters if DB is empty)
+def seed_db():
+    db = SessionLocal()
+    if db.query(Character).count() == 0:
+        pigs = [
+            {"name": "Peppa Pig", "actor": "Amelie Bea Smith", "species": "Pig"},
+            {"name": "George Pig", "actor": "Vincent van Hulzen", "species": "Pig"},
+            {"name": "Mummy Pig", "actor": "Morwenna Banks", "species": "Pig"},
+            {"name": "Daddy Pig", "actor": "Richard Ridings", "species": "Pig"},
+            {"name": "Suzy Sheep", "actor": "Ava Lovell", "species": "Sheep"},
+            {"name": "Rebecca Rabbit", "actor": "Alice May", "species": "Rabbit"},
+            {"name": "Danny Dog", "actor": "George Woolford", "species": "Dog"},
+            {"name": "Pedro Pony", "actor": "Harrison Oldroyd", "species": "Pony"},
+            {"name": "Candy Cat", "actor": "Madison Turner", "species": "Cat"},
+            {"name": "Zoe Zebra", "actor": "Saffron Prior", "species": "Zebra"},
+            {"name": "Emily Elephant", "actor": "Starlight Huang", "species": "Elephant"},
+            {"name": "Madame Gazelle", "actor": "Morwenna Banks", "species": "Gazelle"},
+            {"name": "Mr. Bull", "actor": "David Rintoul", "species": "Bull"},
+            {"name": "Grandpa Pig", "actor": "David Graham", "species": "Pig"},
+            {"name": "Granny Pig", "actor": "Frances White", "species": "Pig"},
+        ]
+        for p in pigs:
+            db.add(Character(**p))
+        db.commit()
+    db.close()
 
-# 🌐 UI HOME
-@app.get("/")
-def home(request: Request):
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "characters": characters
-    })
+seed_db()
 
-# 📦 API: all characters
-@app.get("/characters")
-def get_all():
-    return characters
+# 4. API Routes
+@app.get("/", response_class=HTMLResponse)
+async def read_ui(request: Request):
+    db = SessionLocal()
+    chars = db.query(Character).all()
+    return templates.TemplateResponse("index.html", {"request": request, "characters": chars})
 
-# 🔎 API: specific character
-@app.get("/characters/{id}")
-def get_one(id: int):
-    for c in characters:
-        if c["id"] == id:
-            return c
-    return {"error": "Character not found"}
+@app.get("/api/characters")
+def get_all_characters():
+    db = SessionLocal()
+    return db.query(Character).all()
 
-# 🎤 API: actors only
-@app.get("/actors")
+@app.get("/api/characters/{char_id}")
+def get_character(char_id: int):
+    db = SessionLocal()
+    return db.query(Character).filter(Character.id == char_id).first()
+
+@app.get("/api/actors")
 def get_actors():
-    return [{"name": c["name"], "actor": c["actor"]} for c in characters]
+    db = SessionLocal()
+    return [{"character": c.name, "actor": c.actor} for c in db.query(Character).all()]
