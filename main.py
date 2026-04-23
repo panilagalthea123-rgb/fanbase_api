@@ -19,7 +19,7 @@ def init_db():
     
     # 15 Characters Data
     chars = [
-        ( "Peppa Pig", "Main Character", "Amelie Bea Smith", "A lovable, cheeky little piggy who lives with her family.", ""peppa.png""),
+        ( "Peppa Pig", "Main Character", "Amelie Bea Smith", "A lovable, cheeky little piggy who lives with her family.", "peppa.png"),
         ( "George Pig", "Little Brother", "Alice May", "Peppa's little brother who loves dinosaurs.", "George_s9.png"),
         ( "Mummy Pig", "Mother", "Morwenna Banks", "She works from home on her computer.", "Mummy_Pig.png"),
         ( "Daddy Pig", "Father", "Richard Ridings", "He is very jolly but a bit clumsy.", "Daddy_Pig.png"),
